@@ -1,0 +1,16 @@
+aws_region   = "us-west-2"
+cluster_name = "my-existing-eks-cluster"
+
+# For production, pin the AMI alias after validating it.
+# Example: ami_alias = "al2023@v20260203"
+ami_alias = "al2023@latest"
+
+# Use "aws_auth_configmap" if your cluster has not enabled EKS access entries.
+# Use "none" if node role authorization is managed elsewhere.
+node_role_auth_mode = "access_entry"
+
+# Karpenter discovers subnets and security groups by these tags.
+# Make sure your private subnets have karpenter.sh/discovery=<cluster_name>.
+# subnet_selector_tags = {
+#   "karpenter.sh/discovery" = "my-existing-eks-cluster"
+# }
