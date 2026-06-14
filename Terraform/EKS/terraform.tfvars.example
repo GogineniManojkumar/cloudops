@@ -1,0 +1,76 @@
+aws_region  = "us-east-1"
+project     = "redrose"
+environment = "prod"
+cluster_name = "platform"
+
+vpc_id = "vpc-xxxxxxxxxxxxxxxxx"
+
+private_subnet_ids = [
+  "subnet-aaaaaaaaaaaaaaaaa",
+  "subnet-bbbbbbbbbbbbbbbbb",
+  "subnet-ccccccccccccccccc",
+]
+
+cluster_endpoint_private_access_cidrs = [
+  "10.0.0.0/8",
+]
+
+eks_managed_node_groups = {
+  system = {
+    name           = "system"
+    min_size       = 2
+    max_size       = 4
+    desired_size   = 2
+    instance_types = ["m6i.large"]
+    capacity_type  = "ON_DEMAND"
+    labels = {
+      workload = "system"
+    }
+    taints = {
+      critical = {
+        key    = "CriticalAddonsOnly"
+        value  = "true"
+        effect = "NO_SCHEDULE"
+      }
+    }
+  }
+
+  general = {
+    name           = "general"
+    min_size       = 3
+    max_size       = 20
+    desired_size   = 4
+    instance_types = ["m6i.large", "m6a.large", "m5.large"]
+    capacity_type  = "SPOT"
+    labels = {
+      workload = "general"
+    }
+  }
+}
+
+irsa_roles = {
+  external_dns = {
+    namespace            = "kube-system"
+    service_account_name = "external-dns"
+    policy_arns          = ["arn:aws:iam::123456789012:policy/external-dns"]
+  }
+}
+
+access_entries = {
+  platform_admins = {
+    principal_arn = "arn:aws:iam::123456789012:role/platform-admin"
+    policy_associations = {
+      admin = {
+        policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+        access_scope = {
+          type = "cluster"
+        }
+      }
+    }
+  }
+}
+
+tags = {
+  Owner      = "platform"
+  CostCenter = "cloudops"
+}
