@@ -1,0 +1,36 @@
+aws_region  = "us-east-1"
+name        = "sample"
+environment = "prod"
+
+# Optional. Defaults to 10.0.0.0/16 when omitted.
+vpc_cidr = "10.20.0.0/16"
+
+# Subnet CIDRs are calculated automatically from vpc_cidr and subnet_newbits.
+# With /16 + 8 new bits, each subnet is /24.
+public_subnet_count  = 3
+private_subnet_count = 3
+subnet_newbits       = 8
+
+# NAT is intentionally opt-in because it has hourly and data-processing cost.
+enable_nat_gateway = true
+single_nat_gateway = true
+
+# Endpoints are opt-in. S3 gateway endpoint is enabled by default when this is true.
+enable_vpc_endpoints = true
+gateway_vpc_endpoints = [
+  "s3",
+]
+interface_vpc_endpoints = [
+  "ecr.api",
+  "ecr.dkr",
+  "logs",
+  "sts",
+]
+
+enable_flow_logs       = true
+flow_log_retention_days = 90
+
+additional_tags = {
+  Owner      = "platform"
+  CostCenter = "shared"
+}
