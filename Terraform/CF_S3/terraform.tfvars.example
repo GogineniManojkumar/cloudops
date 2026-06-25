@@ -1,0 +1,21 @@
+aws_region   = "us-east-1"
+project_name = "web-static"
+environment  = "prod"
+
+# Optional: set a globally unique bucket name, or leave bucket_name unset.
+# bucket_name = "example.com"
+
+# Optional custom domain support.
+# The ACM certificate must be created in us-east-1 for CloudFront.
+# domain_aliases      = ["www.example.com", "example.com"]
+# acm_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000"
+
+price_class = "PriceClass_100"
+
+enable_cloudfront_logging      = false
+enable_s3_server_access_logging = false
+
+tags = {
+  ManagedBy = "Terraform"
+  Owner     = "CloudOps"
+}
