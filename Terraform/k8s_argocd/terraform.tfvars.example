@@ -1,0 +1,11 @@
+cluster_host           = "https://your-kubernetes-api-server"
+cluster_token          = "your-service-account-token"
+cluster_ca_certificate = "base64-encoded-cluster-ca-certificate"
+
+namespace    = "argocd"
+release_name = "argocd"
+
+# enable_ingress     = true
+# ingress_class_name = "nginx"
+# server_host        = "argocd.example.com"
+# tls_secret_name    = "argocd-tls"
