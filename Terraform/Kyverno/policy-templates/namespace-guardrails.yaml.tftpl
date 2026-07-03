@@ -1,0 +1,57 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: namespace-guardrails
+  annotations:
+    policies.kyverno.io/title: Namespace Guardrails
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Namespace
+    policies.kyverno.io/description: >-
+      Requires namespaces to declare ownership and environment labels so that
+      security exceptions and reporting can be tied to accountable teams.
+spec:
+  validationFailureAction: ${validation_failure_action}
+  background: true
+  rules:
+    - name: require-namespace-ownership-labels
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+      exclude:
+        any:
+          - resources:
+              names:
+%{ for name in excluded_namespace_names ~}
+                - ${name}
+%{ endfor ~}
+      validate:
+        message: Namespaces must include owner and environment labels.
+        pattern:
+          metadata:
+            labels:
+              owner: "?*"
+              environment: "?*"
+
+    - name: restrict-namespace-environments
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+      exclude:
+        any:
+          - resources:
+              names:
+%{ for name in excluded_namespace_names ~}
+                - ${name}
+%{ endfor ~}
+      validate:
+        message: Namespace environment must be one of the configured allowed environments.
+        pattern:
+          metadata:
+            labels:
+              environment: "${allowed_namespace_environments}"
+

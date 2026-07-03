@@ -1,0 +1,59 @@
+# kubeconfig_context = "arn:aws:eks:us-east-1:123456789012:cluster/example"
+
+# Use Audit first on existing clusters, then switch to Enforce after fixing violations.
+policy_validation_failure_action = "Audit"
+
+excluded_namespaces = [
+  "kube-system",
+  "kube-public",
+  "kube-node-lease",
+  "kyverno",
+  "cert-manager",
+  "external-secrets",
+  "ingress-nginx",
+]
+
+excluded_namespace_names = [
+  "default",
+  "kube-system",
+  "kube-public",
+  "kube-node-lease",
+  "kyverno",
+]
+
+allowed_namespace_environments = ["dev", "staging", "prod"]
+
+approved_image_registries = [
+  "*.dkr.ecr.*.amazonaws.com/*",
+  "public.ecr.aws/*",
+]
+
+loadbalancer_approval_annotation = "security.example.com/exposure-approved"
+
+blocked_ingress_hosts = [
+  "*.example.com",
+  "*",
+]
+
+required_pod_labels = [
+  "app",
+  "team",
+]
+
+# Keep false so namespace owners can tune generated NetworkPolicy/ResourceQuota/LimitRange defaults.
+generate_policy_synchronize = false
+
+default_resource_quota = {
+  "requests.cpu"    = "4"
+  "requests.memory" = "8Gi"
+  "limits.cpu"      = "8"
+  "limits.memory"   = "16Gi"
+  "pods"            = "50"
+}
+
+default_limit_range = {
+  default_cpu            = "500m"
+  default_memory         = "512Mi"
+  default_request_cpu    = "100m"
+  default_request_memory = "128Mi"
+}

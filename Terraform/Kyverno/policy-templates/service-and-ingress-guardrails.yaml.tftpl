@@ -1,0 +1,86 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: service-and-ingress-guardrails
+  annotations:
+    policies.kyverno.io/title: Service and Ingress Guardrails
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Service, Ingress
+    policies.kyverno.io/description: >-
+      Prevents unsafe network exposure patterns by blocking NodePort services,
+      requiring explicit approval for LoadBalancer services, and disallowing
+      wildcard ingress hosts.
+spec:
+  validationFailureAction: ${validation_failure_action}
+  background: true
+  rules:
+    - name: disallow-nodeport-services
+      match:
+        any:
+          - resources:
+              kinds:
+                - Service
+      exclude:
+        any:
+          - resources:
+              namespaces:
+%{ for namespace in excluded_namespaces ~}
+                - ${namespace}
+%{ endfor ~}
+      validate:
+        message: Services of type NodePort are not allowed.
+        pattern:
+          spec:
+            =(type): "!NodePort"
+
+    - name: require-loadbalancer-approval
+      match:
+        any:
+          - resources:
+              kinds:
+                - Service
+      exclude:
+        any:
+          - resources:
+              namespaces:
+%{ for namespace in excluded_namespaces ~}
+                - ${namespace}
+%{ endfor ~}
+      preconditions:
+        all:
+          - key: "{{ request.object.spec.type || 'ClusterIP' }}"
+            operator: Equals
+            value: LoadBalancer
+      validate:
+        message: LoadBalancer services require the configured exposure approval annotation.
+        pattern:
+          metadata:
+            annotations:
+              ${loadbalancer_approval_annotation}: "true"
+
+    - name: disallow-wildcard-ingress-hosts
+      match:
+        any:
+          - resources:
+              kinds:
+                - Ingress
+      exclude:
+        any:
+          - resources:
+              namespaces:
+%{ for namespace in excluded_namespaces ~}
+                - ${namespace}
+%{ endfor ~}
+      validate:
+        message: Ingress hosts must be explicit and cannot use blocked wildcard values.
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.spec.rules[].host || `[]` }}"
+                operator: AnyIn
+                value:
+%{ for host in blocked_ingress_hosts ~}
+                  - "${host}"
+%{ endfor ~}
+

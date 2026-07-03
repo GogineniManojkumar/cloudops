@@ -1,0 +1,212 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: workload-hardening
+  annotations:
+    policies.kyverno.io/title: Workload Hardening
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      Adds workload-level guardrails for non-root execution, immutable image
+      references, approved registries, and read-only root filesystems.
+spec:
+  validationFailureAction: ${validation_failure_action}
+  background: true
+  rules:
+    - name: require-run-as-non-root
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+%{ for namespace in excluded_namespaces ~}
+                - ${namespace}
+%{ endfor ~}
+      validate:
+        message: Pods and containers must explicitly run as non-root.
+        pattern:
+          spec:
+            =(securityContext):
+              =(runAsNonRoot): true
+            =(initContainers):
+              - =(securityContext):
+                  =(runAsNonRoot): true
+            =(ephemeralContainers):
+              - =(securityContext):
+                  =(runAsNonRoot): true
+            containers:
+              - securityContext:
+                  runAsNonRoot: true
+
+    - name: require-read-only-root-filesystem
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+%{ for namespace in excluded_namespaces ~}
+                - ${namespace}
+%{ endfor ~}
+      validate:
+        message: Containers must use a read-only root filesystem.
+        foreach:
+          - list: request.object.spec.[ephemeralContainers, initContainers, containers][]
+            deny:
+              conditions:
+                any:
+                  - key: "{{ element.securityContext.readOnlyRootFilesystem || `false` }}"
+                    operator: NotEquals
+                    value: true
+
+    - name: disallow-latest-tag
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+%{ for namespace in excluded_namespaces ~}
+                - ${namespace}
+%{ endfor ~}
+      validate:
+        message: Container images must not use the mutable 'latest' tag.
+        pattern:
+          spec:
+            =(initContainers):
+              - image: "!*:latest"
+            =(ephemeralContainers):
+              - image: "!*:latest"
+            containers:
+              - image: "!*:latest"
+
+    - name: require-trusted-registries
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+%{ for namespace in excluded_namespaces ~}
+                - ${namespace}
+%{ endfor ~}
+      validate:
+        message: Container images must come from approved registries.
+        pattern:
+          spec:
+            =(initContainers):
+              - image: "${approved_image_registries}"
+            =(ephemeralContainers):
+              - image: "${approved_image_registries}"
+            containers:
+              - image: "${approved_image_registries}"
+
+    - name: require-pod-labels
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+%{ for namespace in excluded_namespaces ~}
+                - ${namespace}
+%{ endfor ~}
+      validate:
+        message: Pods must include the required labels.
+        pattern:
+          metadata:
+            labels:
+%{ for label in required_pod_labels ~}
+              ${label}: "?*"
+%{ endfor ~}
+
+    - name: disallow-privileged-containers
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+%{ for namespace in excluded_namespaces ~}
+                - ${namespace}
+%{ endfor ~}
+      validate:
+        message: Privileged containers are not allowed.
+        pattern:
+          spec:
+            =(initContainers):
+              - =(securityContext):
+                  =(privileged): "false"
+            =(ephemeralContainers):
+              - =(securityContext):
+                  =(privileged): "false"
+            containers:
+              - =(securityContext):
+                  =(privileged): "false"
+
+    - name: disallow-hostpath-volumes
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+%{ for namespace in excluded_namespaces ~}
+                - ${namespace}
+%{ endfor ~}
+      validate:
+        message: hostPath volumes are not allowed.
+        pattern:
+          spec:
+            =(volumes):
+              - X(hostPath): "null"
+
+    - name: require-resource-requests-limits
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+%{ for namespace in excluded_namespaces ~}
+                - ${namespace}
+%{ endfor ~}
+      validate:
+        message: Containers must specify CPU and memory requests and limits.
+        pattern:
+          spec:
+            containers:
+              - resources:
+                  requests:
+                    cpu: "?*"
+                    memory: "?*"
+                  limits:
+                    cpu: "?*"
+                    memory: "?*"
+

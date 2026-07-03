@@ -1,0 +1,100 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: namespace-generators
+  annotations:
+    policies.kyverno.io/title: Namespace Default Generators
+    policies.kyverno.io/category: Multi-Tenancy
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Namespace, NetworkPolicy, ResourceQuota, LimitRange
+    policies.kyverno.io/description: >-
+      Generates a default-deny NetworkPolicy, a ResourceQuota, and a LimitRange
+      in every namespace so new namespaces start from a safe network and
+      capacity baseline instead of an open one.
+spec:
+  generateExisting: true
+  background: true
+  rules:
+    - name: generate-default-networkpolicy
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+      exclude:
+        any:
+          - resources:
+              names:
+%{ for name in excluded_namespace_names ~}
+                - ${name}
+%{ endfor ~}
+      generate:
+        apiVersion: networking.k8s.io/v1
+        kind: NetworkPolicy
+        name: default-deny-external-ingress
+        namespace: "{{request.object.metadata.name}}"
+        synchronize: ${generate_policy_synchronize}
+        data:
+          spec:
+            podSelector: {}
+            policyTypes:
+              - Ingress
+            ingress:
+              - from:
+                  - podSelector: {}
+
+    - name: generate-default-resourcequota
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+      exclude:
+        any:
+          - resources:
+              names:
+%{ for name in excluded_namespace_names ~}
+                - ${name}
+%{ endfor ~}
+      generate:
+        apiVersion: v1
+        kind: ResourceQuota
+        name: default-resource-quota
+        namespace: "{{request.object.metadata.name}}"
+        synchronize: ${generate_policy_synchronize}
+        data:
+          spec:
+            hard:
+%{ for key, value in default_resource_quota ~}
+              ${key}: "${value}"
+%{ endfor ~}
+
+    - name: generate-default-limitrange
+      match:
+        any:
+          - resources:
+              kinds:
+                - Namespace
+      exclude:
+        any:
+          - resources:
+              names:
+%{ for name in excluded_namespace_names ~}
+                - ${name}
+%{ endfor ~}
+      generate:
+        apiVersion: v1
+        kind: LimitRange
+        name: default-limit-range
+        namespace: "{{request.object.metadata.name}}"
+        synchronize: ${generate_policy_synchronize}
+        data:
+          spec:
+            limits:
+              - type: Container
+                default:
+                  cpu: ${default_limit_range.default_cpu}
+                  memory: ${default_limit_range.default_memory}
+                defaultRequest:
+                  cpu: ${default_limit_range.default_request_cpu}
+                  memory: ${default_limit_range.default_request_memory}
